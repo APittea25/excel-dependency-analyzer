@@ -68,3 +68,43 @@ if uploaded_files:
                             # Ensure the referenced file exists in uploaded files
                             if resolved_filename in file_names and resolved_filename != file_name:
                                 file_dependencies[file_name].add(resolved_filename)  # Store dependency
+                                st.write(f"✅ Link created: `{file_name}` → `{resolved_filename}`")
+
+    # **Ensure all files appear in Graphviz, even isolated ones**
+    all_files = set(file_dependencies.keys()).union(*file_dependencies.values())
+
+    # **Check and debug dependencies before drawing graph**
+    st.write("📋 Final Detected Dependencies:", file_dependencies)
+
+    # **Create Dependency Flowchart**
+    st.write("### 🔄 Spreadsheet Dependency Flowchart")
+    flow = graphviz.Digraph(format="png")
+
+    # **Ensure every file is added as a node**
+    for file in all_files:
+        flow.node(file)
+
+    # **Force Graphviz to draw edges properly**
+    has_edges = False  # Track if edges exist
+    for file, dependencies in file_dependencies.items():
+        for dependency in dependencies:
+            flow.edge(dependency, file)  # Draw arrows
+            has_edges = True  # Confirm edges exist
+
+    # **If no edges were created, show a message**
+    if not has_edges:
+        st.warning("⚠️ No dependencies detected between uploaded spreadsheets.")
+    else:
+        st.graphviz_chart(flow)
+
+    # **Show dependency table**
+    st.write("### 📊 Dependency Table")
+    dependency_df = pd.DataFrame(
+        [(file, dep) for file, deps in file_dependencies.items() for dep in deps],
+        columns=["File", "Depends On"]
+    )
+
+    if dependency_df.empty:
+        st.write("✅ No direct dependencies found between uploaded Excel files.")
+    else:
+        st.dataframe(dependency_df)
