@@ -25,9 +25,10 @@ if uploaded_files:
     # Read and process each uploaded file
     excel_data = {}
     file_names = [uploaded_file.name for uploaded_file in uploaded_files]  # Store full file names
-    file_stems = {Path(name).stem: name for name in file_names}  # Create mapping of filename without extension
+    file_stems = {str(index + 1): name for index, name in enumerate(file_names)}  # Map numeric references [1], [2], etc.
 
     st.write("📂 Uploaded files detected:", file_names)  # Debugging: List uploaded files
+    st.write("📊 Numeric File Mapping (for Excel references):", file_stems)  # Debugging: Show Excel's numeric mapping
 
     for uploaded_file in uploaded_files:
         file_name = uploaded_file.name
@@ -54,17 +55,23 @@ if uploaded_files:
                         st.write(f"📊 Formula found in {file_name} - {sheet}: `{formula_text}`")
 
                         # Extract only the spreadsheet name from the full SharePoint/OneDrive path
-                        match = re.search(r"\[(.*?)\]", formula_text)  # Extract part inside square brackets [filename.xlsx]
+                        match = re.search(r"\[(.*?)\]", formula_text)  # Extract part inside square brackets [filename.xlsx] or [1]
                         if match:
-                            referenced_file = match.group(1)  # Extracted file name
-                            referenced_stem = Path(referenced_file).stem  # Get just the name without extension
+                            referenced_file = match.group(1)  # Extracted file name or number (e.g., [Simple Model - Part 1.xlsx] or [1])
 
                             # Debugging: Show extracted file reference
-                            st.write(f"🔗 Formula references file: `{referenced_file}` (Detected as `{referenced_stem}`)")
+                            st.write(f"🔗 Formula references: `{referenced_file}`")
 
-                            # Ensure we check case-insensitive matches
+                            # Check if it's a numeric reference like [1], [2], etc.
+                            if referenced_file.isdigit() and referenced_file in file_stems:
+                                resolved_filename = file_stems[referenced_file]  # Map [1] -> "Simple Model - Part 1.xlsx"
+                                st.write(f"🔄 Resolved `[1]` reference to `{resolved_filename}`")
+                            else:
+                                resolved_filename = referenced_file  # Keep it as-is if it's not numeric
+
+                            # Ensure the referenced file exists in uploaded files
                             for uploaded_stem, uploaded_name in file_stems.items():
-                                if uploaded_stem.lower() == referenced_stem.lower() and uploaded_name != file_name:
+                                if uploaded_stem.lower() == Path(resolved_filename).stem.lower() and uploaded_name != file_name:
                                     file_dependencies[file_name].add(uploaded_name)  # Store dependency
                                     st.write(f"✅ Link created: `{file_name}` → `{uploaded_name}`")
 
