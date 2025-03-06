@@ -31,7 +31,7 @@ if uploaded_files:
 
     for uploaded_file in uploaded_files:
         file_name = uploaded_file.name
-        file_dependencies[file_name] = set()
+        file_dependencies[file_name] = set()  # Ensure every file is in the dictionary
 
         # Read the Excel file
         file_stream = io.BytesIO(uploaded_file.read())  # Convert to BytesIO for openpyxl
@@ -62,20 +62,24 @@ if uploaded_files:
                             # Debugging: Show extracted file reference
                             st.write(f"🔗 Formula references file: `{referenced_file}` (Detected as `{referenced_stem}`)")
 
-                            # Check if this referenced file exists in uploaded files
-                            if referenced_stem in file_stems and file_stems[referenced_stem] != file_name:
-                                file_dependencies[file_name].add(file_stems[referenced_stem])
-                                st.write(f"✅ Link created: `{file_name}` → `{file_stems[referenced_stem]}`")
+                            # Ensure we check case-insensitive matches
+                            for uploaded_stem, uploaded_name in file_stems.items():
+                                if uploaded_stem.lower() == referenced_stem.lower() and uploaded_name != file_name:
+                                    file_dependencies[file_name].add(uploaded_name)  # Store dependency
+                                    st.write(f"✅ Link created: `{file_name}` → `{uploaded_name}`")
 
     # Generate dependency flowchart
     st.write("### 🔄 Spreadsheet Dependency Flowchart")
     flow = graphviz.Digraph()
 
-    # Add nodes and edges
-    for file in file_dependencies:
-        flow.node(file)
-        for dependency in file_dependencies[file]:
-            flow.edge(dependency, file)
+    # Debugging: Show detected dependencies
+    st.write("📋 Detected Dependencies:", file_dependencies)
+
+    # Add nodes and edges to Graphviz
+    for file, dependencies in file_dependencies.items():
+        flow.node(file)  # Ensure all files appear in the diagram
+        for dependency in dependencies:
+            flow.edge(dependency, file)  # Draw arrows
 
     # Display the flowchart
     st.graphviz_chart(flow)
