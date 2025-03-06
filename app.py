@@ -2,57 +2,47 @@ import streamlit as st
 import pandas as pd
 import openpyxl
 import graphviz
-import zipfile
-import os
 import re
+import io
 
 # App title
-st.title("📂 Excel Dependency Analyzer")
+st.title("📂 Multi-File Excel Dependency Analyzer")
 
-# File uploader for ZIP folder
-uploaded_zip = st.file_uploader("Upload a ZIP file containing Excel spreadsheets", type=["zip"])
+# File uploader for multiple Excel files
+uploaded_files = st.file_uploader(
+    "Upload multiple Excel files", 
+    type=["xlsx", "xls"], 
+    accept_multiple_files=True
+)
 
-if uploaded_zip:
-    st.success(f"✅ File '{uploaded_zip.name}' uploaded successfully!")
-
-    # Extract ZIP file
-    extract_folder = "extracted_files"
-    os.makedirs(extract_folder, exist_ok=True)
-
-    # Extract all contents
-    with zipfile.ZipFile(uploaded_zip, "r") as zip_ref:
-        zip_ref.extractall(extract_folder)
-
-    # Debug: Show extracted files
-    extracted_files = os.listdir(extract_folder)
-    st.write("📁 Extracted files:", extracted_files)  # Debugging step
-
-    # Find all Excel files (ensure correct extensions)
-    excel_files = [f for f in extracted_files if f.lower().endswith((".xlsx", ".xls"))]
-
-    if not excel_files:
-        st.error("⚠️ No Excel files found in the uploaded ZIP. Please ensure your ZIP contains valid .xlsx or .xls files at the top level.")
-        st.stop()
+if uploaded_files:
+    st.success(f"✅ {len(uploaded_files)} files uploaded successfully!")
 
     # Store sheet dependencies
     file_dependencies = {}
 
-    # Process each Excel file
-    for file in excel_files:
-        file_path = os.path.join(extract_folder, file)
-        wb = openpyxl.load_workbook(file_path, data_only=False)
-        file_dependencies[file] = set()
+    # Read and process each uploaded file
+    excel_data = {}
+    for uploaded_file in uploaded_files:
+        file_name = uploaded_file.name
+        file_dependencies[file_name] = set()
 
-        # Check for sheet-to-sheet references within and across files
+        # Read the Excel file
+        file_stream = io.BytesIO(uploaded_file.read())  # Convert to BytesIO for openpyxl
+        wb = openpyxl.load_workbook(file_stream, data_only=False)
+        excel_data[file_name] = wb
+
+    # Analyze formulas and detect dependencies
+    for file_name, wb in excel_data.items():
         for sheet in wb.sheetnames:
             ws = wb[sheet]
             for row in ws.iter_rows():
                 for cell in row:
                     if isinstance(cell.value, str) and cell.value.startswith("="):
-                        # Check for references to other Excel files
-                        for other_file in excel_files:
-                            if other_file != file and re.search(rf'\b{other_file[:-5]}!', cell.value, re.IGNORECASE):
-                                file_dependencies[file].add(other_file)
+                        # Check for references to other uploaded Excel files
+                        for other_file in excel_data.keys():
+                            if other_file != file_name and re.search(rf'\b{other_file[:-5]}!', cell.value, re.IGNORECASE):
+                                file_dependencies[file_name].add(other_file)
 
     # Generate dependency flowchart
     st.write("### 🔄 Spreadsheet Dependency Flowchart")
@@ -73,11 +63,8 @@ if uploaded_zip:
         [(file, dep) for file, deps in file_dependencies.items() for dep in deps],
         columns=["File", "Depends On"]
     )
+
     if dependency_df.empty:
-        st.write("✅ No direct dependencies found between Excel files.")
+        st.write("✅ No direct dependencies found between uploaded Excel files.")
     else:
         st.dataframe(dependency_df)
-
-    # Clean up extracted files after execution (Optional)
-    import shutil
-    shutil.rmtree(extract_folder)
