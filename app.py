@@ -76,6 +76,9 @@ if uploaded_files:
                                     file_dependencies[file_name].add(uploaded_name)  # Store dependency
                                     st.write(f"✅ Link created: `{file_name}` → `{uploaded_name}`")
 
+    # **Debugging: Show final dependencies before plotting**
+    st.write("📋 Final Detected Dependencies:", file_dependencies)
+
     # Ensure all files appear in the flowchart (even if they have no links)
     all_files = set(file_dependencies.keys()).union(*file_dependencies.values())
 
@@ -83,16 +86,20 @@ if uploaded_files:
     st.write("### 🔄 Spreadsheet Dependency Flowchart")
     flow = graphviz.Digraph()
 
-    # Debugging: Show detected dependencies
-    st.write("📋 Detected Dependencies:", file_dependencies)
-
-    # Add nodes and edges to Graphviz
+    # **Ensure all files appear in Graphviz, even isolated ones**
     for file in all_files:
-        flow.node(file)  # Ensure all files appear in the diagram
+        flow.node(file)
 
+    # **Force Graphviz to draw arrows**
+    has_edges = False  # Track if at least one arrow is drawn
     for file, dependencies in file_dependencies.items():
         for dependency in dependencies:
             flow.edge(dependency, file)  # Draw arrows
+            has_edges = True  # Track that we have edges
+
+    # **If no edges were added, force a dummy edge to prevent an empty graph**
+    if not has_edges:
+        flow.node("No Dependencies Found", shape="plaintext")
 
     # Display the flowchart
     st.graphviz_chart(flow)
