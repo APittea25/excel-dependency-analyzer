@@ -54,26 +54,30 @@ if uploaded_files:
                         # Debugging: Show detected formula
                         st.write(f"📊 Formula found in {file_name} - {sheet}: `{formula_text}`")
 
-                        # Extract only the spreadsheet name from the full SharePoint/OneDrive path
-                        match = re.search(r"\[(.*?)\]", formula_text)  # Extract part inside square brackets [filename.xlsx] or [1]
+                        # Extract the referenced file (whether full path, [1], or [Simple Model - Part 1.xlsx])
+                        match = re.search(r"\[(.*?)\]", formula_text)
                         if match:
-                            referenced_file = match.group(1)  # Extracted file name or number (e.g., [Simple Model - Part 1.xlsx] or [1])
+                            referenced_file = match.group(1)  # Extracted reference (could be filename or [1])
+                            referenced_stem = Path(referenced_file).stem
 
                             # Debugging: Show extracted file reference
                             st.write(f"🔗 Formula references: `{referenced_file}`")
 
-                            # Check if it's a numeric reference like [1], [2], etc.
+                            # Resolve numeric references like [1] to real filenames
                             if referenced_file.isdigit() and referenced_file in file_stems:
                                 resolved_filename = file_stems[referenced_file]  # Map [1] -> "Simple Model - Part 1.xlsx"
                                 st.write(f"🔄 Resolved `[1]` reference to `{resolved_filename}`")
                             else:
-                                resolved_filename = referenced_file  # Keep it as-is if it's not numeric
+                                resolved_filename = referenced_file  # Keep original if it's a real filename
 
                             # Ensure the referenced file exists in uploaded files
                             for uploaded_stem, uploaded_name in file_stems.items():
                                 if uploaded_stem.lower() == Path(resolved_filename).stem.lower() and uploaded_name != file_name:
                                     file_dependencies[file_name].add(uploaded_name)  # Store dependency
                                     st.write(f"✅ Link created: `{file_name}` → `{uploaded_name}`")
+
+    # Ensure all files appear in the flowchart (even if they have no links)
+    all_files = set(file_dependencies.keys()).union(*file_dependencies.values())
 
     # Generate dependency flowchart
     st.write("### 🔄 Spreadsheet Dependency Flowchart")
@@ -83,8 +87,10 @@ if uploaded_files:
     st.write("📋 Detected Dependencies:", file_dependencies)
 
     # Add nodes and edges to Graphviz
-    for file, dependencies in file_dependencies.items():
+    for file in all_files:
         flow.node(file)  # Ensure all files appear in the diagram
+
+    for file, dependencies in file_dependencies.items():
         for dependency in dependencies:
             flow.edge(dependency, file)  # Draw arrows
 
