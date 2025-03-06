@@ -19,14 +19,19 @@ if uploaded_zip:
     extract_folder = "extracted_files"
     os.makedirs(extract_folder, exist_ok=True)
 
+    # Extract all contents
     with zipfile.ZipFile(uploaded_zip, "r") as zip_ref:
         zip_ref.extractall(extract_folder)
 
-    # Get all Excel files
-    excel_files = [f for f in os.listdir(extract_folder) if f.endswith((".xlsx", ".xls"))]
+    # Debug: Show extracted files
+    extracted_files = os.listdir(extract_folder)
+    st.write("📁 Extracted files:", extracted_files)  # Debugging step
+
+    # Find all Excel files (ensure correct extensions)
+    excel_files = [f for f in extracted_files if f.lower().endswith((".xlsx", ".xls"))]
 
     if not excel_files:
-        st.error("⚠️ No Excel files found in the uploaded ZIP.")
+        st.error("⚠️ No Excel files found in the uploaded ZIP. Please ensure your ZIP contains valid .xlsx or .xls files at the top level.")
         st.stop()
 
     # Store sheet dependencies
@@ -76,4 +81,3 @@ if uploaded_zip:
     # Clean up extracted files after execution (Optional)
     import shutil
     shutil.rmtree(extract_folder)
-
