@@ -4,6 +4,7 @@ import openpyxl
 import graphviz
 import re
 import io
+from pathlib import Path
 
 # App title
 st.title("📂 Multi-File Excel Dependency Analyzer")
@@ -23,6 +24,9 @@ if uploaded_files:
 
     # Read and process each uploaded file
     excel_data = {}
+    file_names = [uploaded_file.name for uploaded_file in uploaded_files]  # Store clean file names
+    file_stems = {Path(name).stem: name for name in file_names}  # Create mapping of stem (name without extension)
+
     for uploaded_file in uploaded_files:
         file_name = uploaded_file.name
         file_dependencies[file_name] = set()
@@ -39,10 +43,15 @@ if uploaded_files:
             for row in ws.iter_rows():
                 for cell in row:
                     if isinstance(cell.value, str) and cell.value.startswith("="):
-                        # Check for references to other uploaded Excel files
-                        for other_file in excel_data.keys():
-                            if other_file != file_name and re.search(rf'\b{other_file[:-5]}!', cell.value, re.IGNORECASE):
-                                file_dependencies[file_name].add(other_file)
+                        # Extract only the filename from full file paths inside formulas
+                        match = re.search(r"\[(.*?)\]", cell.value)  # Extract part inside square brackets [filename.xlsx]
+                        if match:
+                            referenced_file = match.group(1)  # Extracted file name
+                            referenced_stem = Path(referenced_file).stem  # Get just the name without extension
+
+                            # Check if this referenced file exists in uploaded files
+                            if referenced_stem in file_stems and file_stems[referenced_stem] != file_name:
+                                file_dependencies[file_name].add(file_stems[referenced_stem])
 
     # Generate dependency flowchart
     st.write("### 🔄 Spreadsheet Dependency Flowchart")
